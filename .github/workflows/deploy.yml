@@ -6,41 +6,21 @@ on:
       - main
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Set up JDK 17
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Build with Maven
+      - name: Build
         run: mvn clean package -DskipTests
-
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          script: |
-            echo "Starting deployment..."
-
-            mkdir -p /home/ec2-user/app
-
-            cd /home/ec2-user/app
-
-            pkill -f Backend_EC2_Demo || true
-
-            rm -f *.jar
-
-            echo "Old app removed"
 
       - name: Copy JAR to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -52,7 +32,7 @@ jobs:
           source: "target/*.jar"
           target: "/home/ec2-user/app/"
 
-      - name: Start App
+      - name: Restart App Safely
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -68,6 +48,4 @@ jobs:
 
             nohup java -jar $JAR > app.log 2>&1 &
 
-            sleep 5
-
-            echo "Deployment Done"
+            echo "Deployment completed"
