@@ -32,7 +32,7 @@ jobs:
           source: "target/*.jar"
           target: "/home/ec2-user/app/"
 
-      - name: Restart App Safely
+      - name: Restart App Automatically
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -40,12 +40,26 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            cd /home/ec2-user/app
+            cd /home/ec2-user/app/target
+
+            echo "Stopping old app safely..."
+
+            PID=$(lsof -ti:8080)
+
+            if [ -n "$PID" ]; then
+              kill -15 $PID
+              sleep 5
+              echo "Old app stopped"
+            else
+              echo "No app running"
+            fi
 
             JAR=$(ls *.jar | head -n 1)
 
-            echo "Running $JAR"
+            echo "Starting new version: $JAR"
 
             nohup java -jar $JAR > app.log 2>&1 &
 
-            echo "Deployment completed"
+            sleep 5
+
+            echo "Deployment completed successfully"
