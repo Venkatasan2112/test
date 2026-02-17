@@ -10,18 +10,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout Code
         uses: actions/checkout@v3
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: 17
 
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
+      # 🔍 Debug secrets (optional)
       - name: Debug Secrets
         run: |
           echo "HOST = ${{ secrets.EC2_HOST }}"
@@ -30,7 +32,7 @@ jobs:
         env:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
 
-      # 🔴 Stop old app safely
+      # 🛑 Stop old app safely
       - name: Stop old app on EC2
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -40,15 +42,21 @@ jobs:
           port: 22
           script: |
             echo "Stopping old app..."
-            if pgrep -f "java -jar" > /dev/null
-            then
-              pkill -9 -f "java -jar"
-              echo "Old app stopped"
-            else
+
+            PID=$(pgrep -f '\.jar')
+
+            if [ -z "$PID" ]; then
               echo "No running app found"
+            else
+              echo "Killing process $PID"
+              kill -9 $PID
+              echo "Old app stopped"
             fi
 
-      # 📦 Copy jar
+            mkdir -p app
+            exit 0
+
+      # 📦 Copy JAR to EC2
       - name: Copy JAR to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -68,7 +76,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            cd /home/ec2-user/app
-            echo "Starting app..."
+            cd app
             nohup java -jar *.jar > app.log 2>&1 &
             echo "App started"
