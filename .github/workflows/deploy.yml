@@ -22,7 +22,7 @@ jobs:
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
-      - name: Stop old app on EC2
+      - name: Deploy to EC2
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -30,10 +30,17 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            echo "Stopping old app..."
-            pkill -f Backend_EC2_Demo || true
-            rm -rf /home/ec2-user/app/*
+            echo "Starting deployment..."
+
             mkdir -p /home/ec2-user/app
+
+            cd /home/ec2-user/app
+
+            pkill -f Backend_EC2_Demo || true
+
+            rm -f *.jar
+
+            echo "Old app removed"
 
       - name: Copy JAR to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -43,7 +50,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           source: "target/*.jar"
-          target: "/home/ec2-user/app"
+          target: "/home/ec2-user/app/"
 
       - name: Start App
         uses: appleboy/ssh-action@v0.1.10
@@ -54,9 +61,13 @@ jobs:
           port: 22
           script: |
             cd /home/ec2-user/app
+
             JAR=$(ls *.jar | head -n 1)
-            echo "Starting $JAR"
+
+            echo "Running $JAR"
+
             nohup java -jar $JAR > app.log 2>&1 &
+
             sleep 5
-            ps -ef | grep java
-            echo "Deployment Successful"
+
+            echo "Deployment Done"
