@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Code
         uses: actions/checkout@v3
 
@@ -23,7 +22,6 @@ jobs:
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
-      # 🔹 Stop old app safely
       - name: Stop old app on EC2
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -33,22 +31,10 @@ jobs:
           port: 22
           script: |
             echo "Stopping old app..."
-
-            APP_PID=$(ps -ef | grep 'java -jar' | grep '/home/ec2-user/app' | grep -v grep | awk '{print $2}')
-
-            if [ -z "$APP_PID" ]; then
-              echo "No running app found"
-            else
-              echo "Stopping app PID $APP_PID"
-              kill -15 $APP_PID
-              sleep 5
-              echo "App stopped"
-            fi
-
+            pkill -f Backend_EC2_Demo || true
+            rm -rf /home/ec2-user/app/*
             mkdir -p /home/ec2-user/app
-            echo "Stop step completed"
 
-      # 🔹 Copy new JAR
       - name: Copy JAR to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -59,8 +45,7 @@ jobs:
           source: "target/*.jar"
           target: "/home/ec2-user/app"
 
-      # 🔹 Restart app
-      - name: Restart App
+      - name: Start App
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -68,9 +53,10 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            echo "Starting app..."
-
             cd /home/ec2-user/app
-            nohup java -jar *.jar > app.log 2>&1 &
-
-            echo "App started successfully"
+            JAR=$(ls *.jar | head -n 1)
+            echo "Starting $JAR"
+            nohup java -jar $JAR > app.log 2>&1 &
+            sleep 5
+            ps -ef | grep java
+            echo "Deployment Successful"
