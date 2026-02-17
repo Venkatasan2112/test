@@ -11,7 +11,7 @@ public class DemoController {
 
 	@GetMapping("/demo")
 	public ResponseEntity<String> demoController() {
-		return ResponseEntity.ok("AWS EC2 working and deployed successfully !");
+		return ResponseEntity.ok("AWS EC2 working and deployed successfully by venkat !");
 	}
 
 }
