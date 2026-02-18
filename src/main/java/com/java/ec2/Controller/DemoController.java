@@ -11,7 +11,7 @@ public class DemoController {
 
 	@GetMapping("/demo")
 	public ResponseEntity<String> demoController() {
-		return ResponseEntity.ok("Hi im venkat!");
+		return ResponseEntity.ok("Hi im venkat this is my aws service!"); 
 	}
 
 }
