@@ -1,4 +1,4 @@
-name: Deploy to EC2
+name: Docker Deploy to EC2
 
 on:
   push:
@@ -19,20 +19,20 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Build
+      - name: Build Project
         run: mvn clean package -DskipTests
 
-      - name: Copy JAR to EC2
+      - name: Copy Project To EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          source: "target/*.jar"
-          target: "/home/ec2-user/app/"
+          source: "."
+          target: "/home/ec2-user/docker-app"
 
-      - name: Restart App Automatically
+      - name: Docker Build & Restart
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -40,26 +40,16 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            cd /home/ec2-user/app/target
+            cd /home/ec2-user/docker-app
 
-            echo "Stopping old app safely..."
+            echo "Stopping old container"
+            docker stop backend || true
+            docker rm backend || true
 
-            PID=$(lsof -ti:8080)
+            echo "Building Docker image"
+            docker build -t venkat-backend .
 
-            if [ -n "$PID" ]; then
-              kill -15 $PID
-              sleep 5
-              echo "Old app stopped"
-            else
-              echo "No app running"
-            fi
+            echo "Starting container"
+            docker run -d -p 8080:8080 --name backend venkat-backend
 
-            JAR=$(ls *.jar | head -n 1)
-
-            echo "Starting new version: $JAR"
-
-            nohup java -jar $JAR > app.log 2>&1 &
-
-            sleep 5
-
-            echo "Deployment completed successfully"
+            echo "Deployment Completed"
